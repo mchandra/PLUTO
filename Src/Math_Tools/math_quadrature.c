@@ -38,7 +38,7 @@ double GaussQuadrature(double (*func)(double), double xb, double xe,
 {
   int    i, n;
   double w[8], z[8], x;
-  double I, Isub;
+  double Integral, Isub;
   double xb0, xe0, dx;
   
   if (order == 3){
@@ -71,7 +71,7 @@ double GaussQuadrature(double (*func)(double), double xb, double xe,
   
   xb0 = xb; xe0 = xe; /* save original interval endpoints */
   dx = (xe - xb)/(double)nstep; /* sub-interval length */
-  I  = 0.0;
+  Integral  = 0.0;
   for (i = 0; i < nstep; i++){
     xb = xb0 + i*dx;
     xe = xb + dx;
@@ -82,9 +82,9 @@ double GaussQuadrature(double (*func)(double), double xb, double xe,
       Isub += w[n]*func(x);
     }    
     Isub *= 0.5*(xe - xb);
-    I    += Isub;
+    Integral    += Isub;
   }
   
-  return I;
+  return Integral;
 }
 

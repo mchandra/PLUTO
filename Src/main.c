@@ -150,6 +150,11 @@ int main (int argc, char *argv[])
     #endif
   }
 
+  #ifdef FASTRAN
+    struct fastranDataStruct fastranData;
+    InitFASTran(argc, argv, &data, grd, &fastranData);
+  #endif
+
   print1 ("> Starting computation... \n\n");
 
 /* =====================================================================

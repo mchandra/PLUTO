@@ -60,6 +60,7 @@
 #define EXPLICIT             1 /* -- just a number different from 0 !!!  -- */
 #define SUPER_TIME_STEPPING  2 /* -- just a number different from EXPLICIT -- */ 
 #define RK_CHEBYSHEV         4  
+#define FASTRAN              5
 
 /* ---- Operator step labels ---- */
 
@@ -434,6 +435,36 @@
 #endif
 #include "macros.h"  /* Function-like macro header file */
 #include "structs.h" /* Structure declaration header file */
+
+#ifdef FASTRAN
+#include "petsc.h"
+
+struct fastranDataStruct
+{
+  double t, dt;
+  Vec temperatureVec;
+  Vec residualVec;
+
+  SNES snes;
+  DM   dmda;
+
+  const Data *d;
+  const Grid *grid;
+  
+  int x1Start, x1Size;
+  int x2Start, x2Size;
+  int x3Start, x3Size;
+};
+
+void InitFASTran(int argc, char *argv[], const Data *d, const Grid *grid,
+                struct fastranDataStruct *fastranData);
+void TimeStepUsingFASTran(const Data *d, Time_Step *Dts, Grid *grid);
+
+PetscErrorCode ComputeResidual(SNES snes, 
+                               Vec temperatureVec, 
+                               Vec residualVec,
+                               void *ptr);
+#endif
 
 /* *****************************************************
      Recurrent types

@@ -69,4 +69,8 @@ void SplitSource (const Data *d, double dt, Time_Step *Dts, Grid *grid)
   #if (PARABOLIC_FLUX & RK_CHEBYSHEV)
    RKC (d, Dts, grid);
   #endif
+
+  #ifdef FASTRAN
+    TimeStepUsingFASTran(d, Dts, grid);
+  #endif
 }
