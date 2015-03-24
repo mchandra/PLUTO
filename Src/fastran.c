@@ -229,51 +229,126 @@ PetscErrorCode ComputeResidual(SNES snes,
       double bxTopEdge    =  BxTopEdge    / BMagTopEdge;
       double bxBottomEdge =  BxBottomEdge / BMagBottomEdge;
 
-//      residual[jPetsc][iPetsc] =
-//        (T_i_j - T_old_i_j)/fastranData->dt
-//       -(
-//          (1./DX1)
-//        * (   D(X1RightEdge, X2Center)*bxRightEdge
-//            * (
-//                 (  bxRightEdge * (T_iPlus1_j - T_i_j)/DX1)
-//               + (  byRightEdge / DX2 
-//                  * limiter4( T_old_i_jPlus1 - T_old_i_j, T_old_iPlus1_jPlus1 - T_old_iPlus1_j,
-//                              T_old_i_j - T_old_i_jMinus1, T_old_iPlus1_j - T_old_iPlus1_jMinus1
-//                            )
-//                 )
-//              )
-//           -  D(X1LeftEdge, X2Center)*bxLeftEdge
-//            * (
-//                 (  bxLeftEdge * (T_i_j - T_iMinus1_j)/DX1)
-//               + (  byLeftEdge / DX2
-//                  * limiter4(T_old_iMinus1_jPlus1 - T_old_iMinus1_j, T_old_i_jPlus1 - T_old_i_j,
-//                             T_old_iMinus1_j - T_old_iMinus1_jMinus1, T_old_i_j - T_old_i_jMinus1
-//                            )
-//                 )   
-//              )
-//          )
-//        + 
-//          (1./DX2)
-//        * (   D(X1Center, X2TopEdge)*byTopEdge
-//            * (
-//                 (  byTopEdge * (T_i_jPlus1 - T_i_j)/DX2)
-//               + (  bxTopEdge / DX1
-//                  * limiter4(T_old_iPlus1_j - T_old_i_j, T_old_iPlus1_jPlus1 - T_old_i_jPlus1,
-//                             T_old_i_j - T_old_iMinus1_j, T_old_i_jPlus1 - T_old_iMinus1_jPlus1
-//                            )
-//                 )
-//              )
-//          -   D(X1Center, X2BottomEdge)*byBottomEdge
-//            * (
-//                 (  byBottomEdge * (T_i_j - T_i_jMinus1)/DX2)
-//               + (  bxBottomEdge / DX1
-//                  * limiter4(T_old_iPlus1_jMinus1 - T_old_i_jMinus1, T_old_iPlus1_j - T_old_i_j,
-//                             T_old_i_jMinus1 - T_old_iMinus1_jMinus1, T_old_i_j - T_old_iMinus1_j
-//                            )
-//                 )
-//              )
-//          )
-//        );
+      double byRightEdge  =  ByRightEdge  / BMagRightEdge;
+      double byLeftEdge   =  ByLeftEdge   / BMagLeftEdge;
+      double byTopEdge    =  ByTopEdge    / BMagTopEdge;
+      double byBottomEdge =  ByBottomEdge / BMagBottomEdge;
+
+      double dx1 = fastranData->grid[0].dx_glob[iPluto];
+      double dx2 = fastranData->grid[1].dx_glob[jPluto];
+
+      double x1RightEdge  = fastranData->grid[0].xr_glob[iPluto];
+      double x2RightEdge  = fastranData->grid[1].x_glob[iPluto];
+
+      double x1LeftEdge   = fastranData->grid[0].xl_glob[iPluto];
+      double x2LeftEdge   = fastranData->grid[1].x_glob[iPluto];
+
+      double x1TopEdge    = fastranData->grid[0].x_glob[iPluto];
+      double x2TopEdge    = fastranData->grid[1].xr_glob[iPluto];
+
+      double x1BottomEdge = fastranData->grid[0].x_glob[iPluto];
+      double x2BottomEdge = fastranData->grid[1].xl_glob[iPluto];
+
+      double primVarsRightEdge[NVAR];
+      double primVarsLeftEdge[NVAR];
+      double primVarsTopEdge[NVAR];
+      double primVarsBottomEdge[NVAR];
+
+      int var;
+      for (var=0; var<NVAR; var++)
+      {
+        primVarsRightEdge[var] = 
+          0.5*(  fastranData->d->Vc[var][0][jPluto][iPluto]
+               + fastranData->d->Vc[var][0][jPluto][iPluto+1]
+              );
+        
+        primVarsLeftEdge[var] = 
+          0.5*(  fastranData->d->Vc[var][0][jPluto][iPluto-1]
+               + fastranData->d->Vc[var][0][jPluto][iPluto]
+              );
+
+        primVarsTopEdge[var] = 
+          0.5*(  fastranData->d->Vc[var][0][jPluto+1][iPluto]
+               + fastranData->d->Vc[var][0][jPluto][iPluto]
+              );
+
+        primVarsBottomEdge[var] = 
+          0.5*(  fastranData->d->Vc[var][0][jPluto][iPluto]
+               + fastranData->d->Vc[var][0][jPluto-1][iPluto]
+              );
+      }
+
+      double kappaParallelRightEdge, kappaParallelLeftEdge;
+      double kappaParallelTopEdge  , kappaParallelBottomEdge;
+
+      double kappaPerpRightEdge, kappaPerpLeftEdge;
+      double kappaPerpTopEdge  , kappaPerpBottomEdge;
+
+      double phiRightEdge, phiLeftEdge;
+      double phiTopEdge  , phiBottomEdge;
+
+      TC_kappa(primVarsRightEdge,
+               x1RightEdge, x2RightEdge, 0, 
+               &kappaParallelRightEdge, &kappaPerpRightEdge, &phiRightEdge);
+
+      TC_kappa(primVarsLeftEdge,
+               x1LeftEdge, x2LeftEdge, 0, 
+               &kappaParallelLeftEdge, &kappaPerpLeftEdge, &phiLeftEdge);
+
+      TC_kappa(primVarsTopEdge,
+               x1TopEdge, x2TopEdge, 0, 
+               &kappaParallelTopEdge, &kappaPerpTopEdge, &phiTopEdge);
+
+      TC_kappa(primVarsBottomEdge,
+               x1BottomEdge, x2BottomEdge, 0, 
+               &kappaParallelBottomEdge, &kappaPerpBottomEdge, &phiBottomEdge);
+
+
+      residual[jPetsc][iPetsc] =
+        (T_i_j - T_old_i_j)/fastranData->dt
+       -(
+          (1./dx1)
+        * (   kappaParallelRightEdge * bxRightEdge
+            * (
+                 (  bxRightEdge * (T_iPlus1_j - T_i_j)/dx1)
+               + (  byRightEdge / dx2 
+                  * limiter4( T_old_i_jPlus1 - T_old_i_j, T_old_iPlus1_jPlus1 - T_old_iPlus1_j,
+                              T_old_i_j - T_old_i_jMinus1, T_old_iPlus1_j - T_old_iPlus1_jMinus1
+                            )
+                 )
+              )
+           -  kappaParallelLeftEdge * bxLeftEdge
+            * (
+                 (  bxLeftEdge * (T_i_j - T_iMinus1_j)/dx1)
+               + (  byLeftEdge / dx2
+                  * limiter4(T_old_iMinus1_jPlus1 - T_old_iMinus1_j, T_old_i_jPlus1 - T_old_i_j,
+                             T_old_iMinus1_j - T_old_iMinus1_jMinus1, T_old_i_j - T_old_i_jMinus1
+                            )
+                 )   
+              )
+          )
+        + 
+          (1./dx2)
+        * (   kappaParallelTopEdge * byTopEdge
+            * (
+                 (  byTopEdge * (T_i_jPlus1 - T_i_j)/dx2)
+               + (  bxTopEdge / dx1
+                  * limiter4(T_old_iPlus1_j - T_old_i_j, T_old_iPlus1_jPlus1 - T_old_i_jPlus1,
+                             T_old_i_j - T_old_iMinus1_j, T_old_i_jPlus1 - T_old_iMinus1_jPlus1
+                            )
+                 )
+              )
+           -  kappaParallelBottomEdge * byBottomEdge
+            * (
+                 (  byBottomEdge * (T_i_j - T_i_jMinus1)/dx2)
+               + (  bxBottomEdge / dx1
+                  * limiter4(T_old_iPlus1_jMinus1 - T_old_i_jMinus1, T_old_iPlus1_j - T_old_i_j,
+                             T_old_i_jMinus1 - T_old_iMinus1_jMinus1, T_old_i_j - T_old_iMinus1_j
+                            )
+                 )
+              )
+          )
+        );
       
     }
   }

@@ -77,7 +77,9 @@ OBJ += plm_states.o
 OBJ += vec_pot_diff.o
 OBJ += vec_pot_update.o
 OBJ += rk_update.o
+OBJ += parabolic_flux.o
 include $(SRC)/MHD/makefile
+include $(SRC)/Thermal_Conduction/makefile
 include $(SRC)/MHD/CT/makefile
 include $(SRC)/EOS/Ideal/makefile
 

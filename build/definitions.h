@@ -18,7 +18,7 @@
 #define  MHD_FORMULATION         CONSTRAINED_TRANSPORT
 #define  BACKGROUND_FIELD        NO
 #define  RESISTIVE_MHD           NO
-#define  THERMAL_CONDUCTION      NO
+#define  THERMAL_CONDUCTION      EXPLICIT
 #define  VISCOSITY               NO
 #define  ROTATING_FRAME          NO
 
