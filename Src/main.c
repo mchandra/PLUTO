@@ -54,7 +54,12 @@
 
 static double NextTimeStep (Time_Step *, struct INPUT *, Grid *);
 static char *TotalExecutionTime (double);
+#ifdef FASTRAN
+static int Integrate (Data *, Riemann_Solver *, Time_Step *, Grid *, 
+                      struct fastranDataStruct *);
+#else
 static int Integrate (Data *, Riemann_Solver *, Time_Step *, Grid *);
+#endif
 static void CheckForOutput (Data *, Input *, Grid *);
 static void CheckForAnalysis (Data *, Input *, Grid *);
 
@@ -212,7 +217,11 @@ int main (int argc, char *argv[])
      ------------------------------------------------------ */
 
     if (cmd_line.jet != -1) SetJetDomain (&data, cmd_line.jet, ini.log_freq, grd); 
-    err = Integrate (&data, Solver, &Dts, grd);
+    #ifdef FASTRAN
+      err = Integrate (&data, Solver, &Dts, grd, &fastranData);
+    #else
+      err = Integrate (&data, Solver, &Dts, grd);
+    #endif
     if (cmd_line.jet != -1) UnsetJetDomain (&data, cmd_line.jet, grd); 
 
   /* ------------------------------------------------------
@@ -392,7 +401,12 @@ int main (int argc, char *argv[])
      ------------------------------------------------------ */
 
     if (cmd_line.jet != -1) SetJetDomain (&data, cmd_line.jet, ini.log_freq, grd); 
-    err = Integrate (&data, Solver, &Dts, grd);
+    #ifdef FASTRAN
+      fastranData->dt = g_dt;
+      err = Integrate (&data, Solver, &Dts, grd, &fastranData);
+    #else
+      err = Integrate (&data, Solver, &Dts, grd);
+    #endif
     if (cmd_line.jet != -1) UnsetJetDomain (&data, cmd_line.jet, grd); 
 
   /* ------------------------------------------------------
@@ -462,7 +476,12 @@ int main (int argc, char *argv[])
 }
 #undef SHOW_TIME_STEPS
 /* ******************************************************************** */
+#ifdef FASTRAN
+int Integrate (Data *d, Riemann_Solver *Solver, Time_Step *Dts, Grid *grid,
+               struct fastranDataStruct *fastranData)
+#else
 int Integrate (Data *d, Riemann_Solver *Solver, Time_Step *Dts, Grid *grid)
+#endif
 /*!
  * Advance equations by a single time-step.
 
@@ -511,9 +530,16 @@ int Integrate (Data *d, Riemann_Solver *Solver, Time_Step *Dts, Grid *grid)
     #endif
     g_operatorStep = PARABOLIC_STEP;
     SplitSource (d, g_dt, Dts, grid);
+
+    #ifdef FASTRAN
+      TimeStepSourceTermsUsingFASTran(d, Dts, grid, fastranData);
+    #endif
   }else{
     g_operatorStep = PARABOLIC_STEP;
     SplitSource (d, g_dt, Dts, grid);
+    #ifdef FASTRAN
+      TimeStepSourceTermsUsingFASTran(d, Dts, grid, fastranData);
+    #endif
     g_operatorStep = HYPERBOLIC_STEP;
     #if DIMENSIONAL_SPLITTING == YES
      for (g_dir = DIMENSIONS - 1; g_dir >= 0; g_dir--){

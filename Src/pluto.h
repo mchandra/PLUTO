@@ -441,7 +441,7 @@
 
 struct fastranDataStruct
 {
-  double t, dt;
+  double dt;
   Vec temperatureVec;
   Vec residualVec;
 
@@ -450,20 +450,23 @@ struct fastranDataStruct
 
   const Data *d;
   const Grid *grid;
-  
-  int x1Start, x1Size;
-  int x2Start, x2Size;
-  int x3Start, x3Size;
 };
 
 void InitFASTran(int argc, char *argv[], const Data *d, const Grid *grid,
                 struct fastranDataStruct *fastranData);
-void TimeStepUsingFASTran(const Data *d, Time_Step *Dts, Grid *grid);
+void TimeStepSourceTermsUsingFASTran(const Data *d, 
+                                     Time_Step *Dts,
+                                     Grid *grid,
+                                     struct fastranDataStruct *fastranData);
 
 PetscErrorCode ComputeResidual(SNES snes, 
                                Vec temperatureVec, 
                                Vec residualVec,
                                void *ptr);
+
+double minMod(double a, double b);
+double limiter2(double a, double b);
+double limiter4(double a, double b, double c, double d);
 #endif
 
 /* *****************************************************
