@@ -57,10 +57,10 @@
 #define RK3                        6
 #define RK_MIDPOINT                7
 
-#define EXPLICIT             1 /* -- just a number different from 0 !!!  -- */
-#define SUPER_TIME_STEPPING  2 /* -- just a number different from EXPLICIT -- */ 
-#define RK_CHEBYSHEV         4  
-#define FASTRAN              5
+#define EXPLICIT              1 /* -- just a number different from 0 !!!  -- */
+#define SUPER_TIME_STEPPING   2 /* -- just a number different from EXPLICIT -- */ 
+#define RK_CHEBYSHEV          4  
+#define FASTRAN_TIME_STEPPING 5
 
 /* ---- Operator step labels ---- */
 
@@ -421,7 +421,11 @@
       11   --> mixed: there is at least one explicit and sts operator
    ********************************************************************* */
 
-#define PARABOLIC_FLUX (RESISTIVE_MHD|THERMAL_CONDUCTION|VISCOSITY)
+#if (THERMAL_CONDUCTION == FASTRAN_TIME_STEPPING)
+  #define PARABOLIC_FLUX (NO)
+#else
+  #define PARABOLIC_FLUX (RESISTIVE_MHD|THERMAL_CONDUCTION|VISCOSITY)
+#endif
 
 /* ********************************************************
     Include more header files
@@ -435,6 +439,10 @@
 #endif
 #include "macros.h"  /* Function-like macro header file */
 #include "structs.h" /* Structure declaration header file */
+
+#if (THERMAL_CONDUCTION == FASTRAN_TIME_STEPPING)
+  #define FASTRAN
+#endif
 
 #ifdef FASTRAN
 #include "petsc.h"

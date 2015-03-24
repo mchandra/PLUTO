@@ -41,7 +41,13 @@ void InitFASTran(int argc, char *argv[], const Data *d, const Grid *grid,
   SNESSetFunction(fastranData->snes, fastranData->residualVec,
                   ComputeResidual, fastranData);
 
-  SNESSetFromOptions(fastranData->snes);
+  //SNESSetFromOptions(fastranData->snes);
+  PetscViewer monviewer;
+
+  PetscViewerASCIIOpen(PetscObjectComm((PetscObject)fastranData->snes), "err.txt", &monviewer);
+
+  SNESMonitorSet(fastranData->snes, SNESMonitorDefault, monviewer,
+                 (PetscErrorCode (*)(void**))PetscViewerDestroy);
 
   PetscPrintf(MPI_COMM_WORLD, "done\n\n");
 }
@@ -55,7 +61,13 @@ void TimeStepSourceTermsUsingFASTran(const Data *d,
   fastranData->grid = grid;
 
   #if (DIMENSIONS==2)
-    
+    int x1Start, x2Start, x3Start;
+    int x1Size , x2Size , x3Size;
+    DMDAGetCorners(fastranData->dmda,
+                   &x1Start, &x2Start, &x3Start,
+                   &x1Size,  &x2Size , &x3Size); 
+
+
     /* First copy the temperature from PLUTO to FASTran */
     double **T;
     DMDAVecGetArray(fastranData->dmda, fastranData->temperatureVec, &T);
@@ -99,7 +111,6 @@ void TimeStepSourceTermsUsingFASTran(const Data *d,
     DMDAVecRestoreArray(fastranData->dmda, fastranData->temperatureVec, &T);
 
   #endif
-
 }
 
 PetscErrorCode ComputeResidual(SNES snes, 

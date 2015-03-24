@@ -44,7 +44,8 @@
                        VISCOSITY == RK_CHEBYSHEV)
 
 #define ADD_TC (THERMAL_CONDUCTION == SUPER_TIME_STEPPING || \
-                THERMAL_CONDUCTION == RK_CHEBYSHEV)
+                THERMAL_CONDUCTION == RK_CHEBYSHEV || \
+                THERMAL_CONDUCTION == FASTRAN_TIME_STEPPING)
 
 /* ********************************************************************* */
 double ParabolicRHS (const Data *d, Data_Arr dU, double dt, Grid *grid)

@@ -4,11 +4,11 @@
 #             
 ########################################################################
 
-CC       = gcc
+CC       = mpicc
 CFLAGS   = -c -O3
 LDFLAGS  = -lm
 
-PARALLEL = FALSE
+PARALLEL = TRUE
 USE_HDF5 = FALSE
 USE_PNG  = FALSE
 

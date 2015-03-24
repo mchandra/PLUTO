@@ -23,7 +23,7 @@ INCLUDE_DIRS += ${PETSC_CC_INCLUDES}
 # ---------------------------------------------------------
 
 HEADERS = pluto.h prototypes.h structs.h definitions.h macros.h mod_defs.h plm_coeffs.h
-OBJ = adv_flux.o arrays.o boundary.o check_states.o fastran.o \
+OBJ = adv_flux.o arrays.o boundary.o check_states.o \
       cmd_line_opt.o entropy_switch.o  \
       findshock.o flag_shock.o flag.o flatten.o get_nghost.o   \
       init.o int_bound_reset.o input_data.o mappers3D.o  \
@@ -77,7 +77,8 @@ OBJ += plm_states.o
 OBJ += vec_pot_diff.o
 OBJ += vec_pot_update.o
 OBJ += rk_update.o
-OBJ += parabolic_flux.o
+OBJ += parabolic_rhs.o
+OBJ += fastran.o
 include $(SRC)/MHD/makefile
 include $(SRC)/Thermal_Conduction/makefile
 include $(SRC)/MHD/CT/makefile
