@@ -218,6 +218,7 @@ int main (int argc, char *argv[])
 
     if (cmd_line.jet != -1) SetJetDomain (&data, cmd_line.jet, ini.log_freq, grd); 
     #ifdef FASTRAN
+      fastranData.dt = g_dt;
       err = Integrate (&data, Solver, &Dts, grd, &fastranData);
     #else
       err = Integrate (&data, Solver, &Dts, grd);
@@ -402,7 +403,7 @@ int main (int argc, char *argv[])
 
     if (cmd_line.jet != -1) SetJetDomain (&data, cmd_line.jet, ini.log_freq, grd); 
     #ifdef FASTRAN
-      fastranData->dt = g_dt;
+      fastranData.dt = g_dt;
       err = Integrate (&data, Solver, &Dts, grd, &fastranData);
     #else
       err = Integrate (&data, Solver, &Dts, grd);

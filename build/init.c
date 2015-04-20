@@ -52,7 +52,7 @@ void Init (double *v, double x1, double x2, double x3)
 
   #if PHYSICS == MHD || PHYSICS == RMHD
 
-   v[BX1] = 0.0;
+   v[BX1] = 1.0;
    v[BX2] = 0.0;
    v[BX3] = 0.0;
 

@@ -187,8 +187,8 @@ void ParseCmdLineArgs (int argc, char *argv[], char *ini_file,
       QUIT_PLUTO(1);
 
     }else{
-      if (prank == 0) printf ("! Unknown option '%s'\n",argv[i]);
-      QUIT_PLUTO(1);
+//      if (prank == 0) printf ("! Unknown option '%s'\n",argv[i]);
+//      QUIT_PLUTO(1);
     }
   }
 
