@@ -38,16 +38,26 @@ void TC_kappa(double *v, double x1, double x2, double x3,
 {
   double mu, T, B2_cgs, nH;
 
-  mu   = 0.5;
+//  mu   = 0.5;
+//  T    = v[PRS]/v[RHO]*mu*KELVIN;
+//
+//  *kpar = 5.6e-7*T*T*sqrt(T);
+//  #if PHYSICS == MHD
+//   B2_cgs  = EXPAND(v[BX1]*v[BX1], + v[BX2]*v[BX2], + v[BX3]*v[BX3]) + 1.e-12;
+//   B2_cgs *= 4.0*CONST_PI*UNIT_DENSITY*UNIT_VELOCITY*UNIT_VELOCITY;
+//   nH    = v[RHO]*UNIT_DENSITY/CONST_mp;
+//   *knor = 3.3e-16*nH*nH/(sqrt(T)*B2_cgs);
+//  #endif
+//  
+//  *phi = 0.3;
+
+  mu   = 0.62;
   T    = v[PRS]/v[RHO]*mu*KELVIN;
 
-  *kpar = 5.6e-7*T*T*sqrt(T);
+   *kpar = 1.0;
   #if PHYSICS == MHD
-   B2_cgs  = EXPAND(v[BX1]*v[BX1], + v[BX2]*v[BX2], + v[BX3]*v[BX3]) + 1.e-12;
-   B2_cgs *= 4.0*CONST_PI*UNIT_DENSITY*UNIT_VELOCITY*UNIT_VELOCITY;
-   nH    = v[RHO]*UNIT_DENSITY/CONST_mp;
-   *knor = 3.3e-16*nH*nH/(sqrt(T)*B2_cgs);
+   *knor = 0.0; 
   #endif
-  
-  *phi = 0.3;
+
+  *phi = 1.e10;
 }

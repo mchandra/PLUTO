@@ -55,15 +55,43 @@ void InitFASTran(int argc, char *argv[], const Data *d, const Grid *grid,
   
   int n;
   int dumpCounter=0;
+    /* First copy the temperature from PLUTO to FASTran */
+    double **T;
+    DMDAVecGetArray(fastranData->dmda, fastranData->temperatureVec, &T);
+
+    int jPluto, iPluto, jPetsc, iPetsc;
+    for (jPluto=JBEG; jPluto <= JEND; jPluto++)
+    {
+      for (iPluto=IBEG; iPluto <= IEND; iPluto++)
+      {
+        jPetsc = jPluto - grid[1].nghost;
+        iPetsc = iPluto - grid[0].nghost;
+
+        T[jPetsc][iPetsc] = 
+          d->Vc[PRS][0][jPluto][iPluto]/d->Vc[RHO][0][jPluto][iPluto];
+
+        //printf("i = %d, j = %d, T = %f\n", iPetsc, jPetsc, T[jPetsc][iPetsc]);
+      }
+    }
+
+    DMDAVecRestoreArray(fastranData->dmda, fastranData->temperatureVec, &T);
+    char primVarsFileName[50];
+    sprintf(primVarsFileName, "%s%06d.h5", "data", dumpCounter);
+
+    PetscViewer viewer;
+    PetscViewerHDF5Open(MPI_COMM_WORLD, primVarsFileName,
+                        FILE_MODE_WRITE, &viewer);
+    PetscObjectSetName((PetscObject) fastranData->temperatureVec, "temperature");
+    VecView(fastranData->temperatureVec, viewer);
+    PetscViewerDestroy(&viewer);
+    dumpCounter++;
   
-  for (n=0; n<10; n++)
+  for (n=0; n<100; n++)
   {
     TimeStepSourceTermsUsingFASTran(d, NULL, grid, fastranData);
 
-    char primVarsFileName[50];
-    sprintf(primVarsFileName, "%s%06d.h5", "dump", dumpCounter);
+    sprintf(primVarsFileName, "%s%06d.h5", "data", dumpCounter);
 
-    PetscViewer viewer;
     PetscViewerHDF5Open(MPI_COMM_WORLD, primVarsFileName,
                         FILE_MODE_WRITE, &viewer);
     PetscObjectSetName((PetscObject) fastranData->temperatureVec, "temperature");
@@ -86,12 +114,6 @@ void TimeStepSourceTermsUsingFASTran(const Data *d,
   fastranData->grid = grid;
 
   #if (DIMENSIONS==2)
-    int x1Start, x2Start, x3Start;
-    int x1Size , x2Size , x3Size;
-    DMDAGetCorners(fastranData->dmda,
-                   &x1Start, &x2Start, &x3Start,
-                   &x1Size,  &x2Size , &x3Size); 
-
 
     /* First copy the temperature from PLUTO to FASTran */
     double **T;
@@ -125,8 +147,11 @@ void TimeStepSourceTermsUsingFASTran(const Data *d,
         jPetsc = jPluto - grid[1].nghost;
         iPetsc = iPluto - grid[0].nghost;
 
-        d->Vc[PRS][0][jPluto][iPluto] = 
-          T[jPetsc][iPetsc] * d->Vc[RHO][0][jPluto][iPluto];
+//        d->Vc[PRS][0][jPluto][iPluto] = 
+//          T[jPetsc][iPetsc] * d->Vc[RHO][0][jPluto][iPluto];
+
+        d->Vc[RHO][0][jPluto][iPluto] = 
+          d->Vc[PRS][0][jPluto][iPluto] / T[jPetsc][iPetsc] ;
       }
     }
 
@@ -177,31 +202,31 @@ PetscErrorCode ComputeResidual(SNES snes,
       double T_i_jMinus1        = T[jPetsc-1][iPetsc];
 
       double T_old_i_j             =    fastranData->d->Vc[PRS][0][jPluto][iPluto]
-                                      / fastranData->d->Vc[PRS][0][jPluto][iPluto];
+                                      / fastranData->d->Vc[RHO][0][jPluto][iPluto];
 
       double T_old_iPlus1_j        =    fastranData->d->Vc[PRS][0][jPluto][iPluto+1]
-                                      / fastranData->d->Vc[PRS][0][jPluto][iPluto+1];
+                                      / fastranData->d->Vc[RHO][0][jPluto][iPluto+1];
 
       double T_old_iMinus1_j       =    fastranData->d->Vc[PRS][0][jPluto][iPluto-1]
-                                      / fastranData->d->Vc[PRS][0][jPluto][iPluto-1];
+                                      / fastranData->d->Vc[RHO][0][jPluto][iPluto-1];
 
       double T_old_i_jPlus1        =    fastranData->d->Vc[PRS][0][jPluto+1][iPluto]
-                                      / fastranData->d->Vc[PRS][0][jPluto+1][iPluto];
+                                      / fastranData->d->Vc[RHO][0][jPluto+1][iPluto];
 
       double T_old_i_jMinus1       =    fastranData->d->Vc[PRS][0][jPluto-1][iPluto]
-                                      / fastranData->d->Vc[PRS][0][jPluto-1][iPluto];
+                                      / fastranData->d->Vc[RHO][0][jPluto-1][iPluto];
 
       double T_old_iPlus1_jPlus1   =    fastranData->d->Vc[PRS][0][jPluto+1][iPluto+1]
-                                      / fastranData->d->Vc[PRS][0][jPluto+1][iPluto+1];
+                                      / fastranData->d->Vc[RHO][0][jPluto+1][iPluto+1];
 
       double T_old_iMinus1_jPlus1  =    fastranData->d->Vc[PRS][0][jPluto+1][iPluto-1]
-                                      / fastranData->d->Vc[PRS][0][jPluto+1][iPluto-1];
+                                      / fastranData->d->Vc[RHO][0][jPluto+1][iPluto-1];
 
       double T_old_iPlus1_jMinus1  =    fastranData->d->Vc[PRS][0][jPluto-1][iPluto+1]
-                                      / fastranData->d->Vc[PRS][0][jPluto-1][iPluto+1];
+                                      / fastranData->d->Vc[RHO][0][jPluto-1][iPluto+1];
 
       double T_old_iMinus1_jMinus1 =   fastranData->d->Vc[PRS][0][jPluto-1][iPluto-1]
-                                     / fastranData->d->Vc[PRS][0][jPluto-1][iPluto-1];
+                                     / fastranData->d->Vc[RHO][0][jPluto-1][iPluto-1];
 
 
       /* Bx at (i+1/2, j) */
@@ -399,6 +424,11 @@ PetscErrorCode ComputeResidual(SNES snes,
               )
           )
         );
+
+//      residual[jPetsc][iPetsc] = 
+//        (T_i_j - T_old_i_j)/fastranData->dt -
+//        100.*(T_iPlus1_j - T_iMinus1_j)/(2.*(1./NX1)) -
+//        100.*(T_i_jPlus1 - T_i_jMinus1)/(2.*(1./NX2));
 
     }
   }

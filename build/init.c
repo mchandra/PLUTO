@@ -41,19 +41,33 @@ void Init (double *v, double x1, double x2, double x3)
  *
  *********************************************************************** */
 {
-  v[RHO] = 1.0;
+  double r, theta;
+
+  r = sqrt(x1*x1 + x2*x2);
+  theta = atan(x2/x1);
+
+  if (r<0.7 && r>0.5 && theta<CONST_PI/12. && theta>-CONST_PI/12. && x1<0.0)
+  {
+    v[RHO] = 0.01;
+  }
+  else
+  {
+    v[RHO] = 1.0;
+  }
+
+
   v[VX1] = 0.0;
   v[VX2] = 0.0;
   v[VX3] = 0.0;
   #if HAVE_ENERGY
-   v[PRS] = 1.0;
+    v[PRS] = 1.0;
   #endif
   v[TRC] = 0.0;
 
   #if PHYSICS == MHD || PHYSICS == RMHD
 
-   v[BX1] = 1.0;
-   v[BX2] = 0.0;
+   v[BX1] = -1.e-4*x2/r;
+   v[BX2] = 1.e-4*x1/r;
    v[BX3] = 0.0;
 
    v[AX1] = 0.0;
@@ -61,6 +75,10 @@ void Init (double *v, double x1, double x2, double x3)
    v[AX3] = 0.0;
 
   #endif
+  
+
+//  v[RHO] = 1.  - 0.1*exp(-r*r/(0.1*0.1));
+
 }
 /* ********************************************************************* */
 void Analysis (const Data *d, Grid *grid)
