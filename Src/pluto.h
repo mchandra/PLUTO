@@ -451,6 +451,8 @@ struct fastranDataStruct
 {
   double dt;
   Vec temperatureVec;
+  Vec temperatureVecOld;
+  Vec temperatureVecOldLocal;
   Vec residualVec;
 
   SNES snes;
@@ -458,6 +460,9 @@ struct fastranDataStruct
 
   const Data *d;
   const Grid *grid;
+
+  int iStart, jStart, kStart;
+  int iSize,  jSize,  kSize;
 };
 
 void InitFASTran(int argc, char *argv[], const Data *d, const Grid *grid,

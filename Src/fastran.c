@@ -18,12 +18,15 @@ void InitFASTran(int argc, char *argv[], const Data *d, const Grid *grid,
 
     }
 
+    int N1 = grid[0].gend - grid[0].gbeg + 1;
+    int N2 = grid[1].gend - grid[1].gbeg + 1;
+
     /* Only coded periodic boundary conditions so far */
     DMDACreate2d(MPI_COMM_WORLD,
                  DM_BOUNDARY_PERIODIC, DM_BOUNDARY_PERIODIC,
                  DMDA_STENCIL_BOX,
-                 NX1, NX2,
-                 PETSC_DECIDE, PETSC_DECIDE,
+                 N1, N2,
+                 N1/NX1, N2/NX2,
                  1, grid[0].nghost, PETSC_NULL, PETSC_NULL,
                  &fastranData->dmda);
   #else
@@ -34,6 +37,8 @@ void InitFASTran(int argc, char *argv[], const Data *d, const Grid *grid,
   SNESSetDM(fastranData->snes, fastranData->dmda);
 
   DMCreateGlobalVector(fastranData->dmda, &fastranData->temperatureVec);
+  DMCreateGlobalVector(fastranData->dmda, &fastranData->temperatureVecOld);
+  DMGetLocalVector(fastranData->dmda, &fastranData->temperatureVecOldLocal);
   DMCreateGlobalVector(fastranData->dmda, &fastranData->residualVec);
   VecSet(fastranData->temperatureVec, 0.);
   VecSet(fastranData->residualVec, 0.);
@@ -52,42 +57,55 @@ void InitFASTran(int argc, char *argv[], const Data *d, const Grid *grid,
   /* Set initial dt */
   fastranData->dt = g_dt;
   PetscPrintf(MPI_COMM_WORLD, "done\n\n");
-  
-  int n;
-  int dumpCounter=0;
-    /* First copy the temperature from PLUTO to FASTran */
-    double **T;
-    DMDAVecGetArray(fastranData->dmda, fastranData->temperatureVec, &T);
 
-    int jPluto, iPluto, jPetsc, iPetsc;
-    for (jPluto=JBEG; jPluto <= JEND; jPluto++)
+  DMDAGetCorners(fastranData->dmda,
+                 &fastranData->iStart, 
+                 &fastranData->jStart, 
+                 &fastranData->kStart,
+                 &fastranData->iSize,
+                 &fastranData->jSize,
+                 &fastranData->kSize
+                );
+
+  /* First copy the temperature from PLUTO to FASTran */
+  double **T_old;
+  DMDAVecGetArray(fastranData->dmda, fastranData->temperatureVecOld, &T_old);
+
+  int jPluto, iPluto, jPetsc, iPetsc;
+  for (jPetsc = fastranData->jStart, jPluto=JBEG; 
+       jPetsc < fastranData->jStart + fastranData->jSize, jPluto <= JEND;
+       jPetsc++, jPluto++
+      )
+  {
+    for (iPetsc = fastranData->iStart, iPluto=IBEG; 
+         iPetsc < fastranData->iStart + fastranData->iSize, iPluto <= IEND;
+         iPetsc++, iPluto++
+        )
     {
-      for (iPluto=IBEG; iPluto <= IEND; iPluto++)
-      {
-        jPetsc = jPluto - grid[1].nghost;
-        iPetsc = iPluto - grid[0].nghost;
-
-        T[jPetsc][iPetsc] = 
-          d->Vc[PRS][0][jPluto][iPluto]/d->Vc[RHO][0][jPluto][iPluto];
-
-        //printf("i = %d, j = %d, T = %f\n", iPetsc, jPetsc, T[jPetsc][iPetsc]);
-      }
+      T_old[jPetsc][iPetsc] = 
+        d->Vc[PRS][0][jPluto][iPluto]/d->Vc[RHO][0][jPluto][iPluto];
     }
+  }
 
-    DMDAVecRestoreArray(fastranData->dmda, fastranData->temperatureVec, &T);
-    char primVarsFileName[50];
-    sprintf(primVarsFileName, "%s%06d.h5", "data", dumpCounter);
+  DMDAVecRestoreArray(fastranData->dmda, fastranData->temperatureVecOld, &T_old);
 
-    PetscViewer viewer;
-    PetscViewerHDF5Open(MPI_COMM_WORLD, primVarsFileName,
-                        FILE_MODE_WRITE, &viewer);
-    PetscObjectSetName((PetscObject) fastranData->temperatureVec, "temperature");
-    VecView(fastranData->temperatureVec, viewer);
-    PetscViewerDestroy(&viewer);
-    dumpCounter++;
+  /* Uncomment for testing without hydro terms */
+  /*
+  int n, dumpCounter=0;
+  char primVarsFileName[50];
+  sprintf(primVarsFileName, "%s%06d.h5", "data", dumpCounter);
+
+  PetscViewer viewer;
+  PetscViewerHDF5Open(MPI_COMM_WORLD, primVarsFileName,
+                      FILE_MODE_WRITE, &viewer);
+  PetscObjectSetName((PetscObject) fastranData->temperatureVecOld, "temperature");
+  VecView(fastranData->temperatureVecOld, viewer);
+  PetscViewerDestroy(&viewer);
+  dumpCounter++;
   
   for (n=0; n<100; n++)
   {
+    PetscPrintf(MPI_COMM_WORLD, "n = %d\n", n);
     TimeStepSourceTermsUsingFASTran(d, NULL, grid, fastranData);
 
     sprintf(primVarsFileName, "%s%06d.h5", "data", dumpCounter);
@@ -101,8 +119,10 @@ void InitFASTran(int argc, char *argv[], const Data *d, const Grid *grid,
     PetscPrintf(MPI_COMM_WORLD, "\nDumped temperature\n", primVarsFileName);
     dumpCounter++;
   }
-  
   exit(1);
+  */
+
+  DMRestoreLocalVector(fastranData->dmda, &fastranData->temperatureVecOldLocal);
 }
 
 void TimeStepSourceTermsUsingFASTran(const Data *d, 
@@ -116,42 +136,59 @@ void TimeStepSourceTermsUsingFASTran(const Data *d,
   #if (DIMENSIONS==2)
 
     /* First copy the temperature from PLUTO to FASTran */
-    double **T;
-    DMDAVecGetArray(fastranData->dmda, fastranData->temperatureVec, &T);
+    double **T_old, **T;
+    DMDAVecGetArray(fastranData->dmda, fastranData->temperatureVecOld, &T_old);
 
     int jPluto, iPluto, jPetsc, iPetsc;
-    for (jPluto=JBEG; jPluto <= JEND; jPluto++)
+    for (jPetsc = fastranData->jStart, jPluto=JBEG; 
+         jPetsc < fastranData->jStart + fastranData->jSize, jPluto <= JEND;
+         jPetsc++, jPluto++
+        )
     {
-      for (iPluto=IBEG; iPluto <= IEND; iPluto++)
+      for (iPetsc = fastranData->iStart, iPluto=IBEG; 
+           iPetsc < fastranData->iStart + fastranData->iSize, iPluto <= IEND;
+           iPetsc++, iPluto++
+          )
       {
-        jPetsc = jPluto - grid[1].nghost;
-        iPetsc = iPluto - grid[0].nghost;
-
-        T[jPetsc][iPetsc] = 
+        T_old[jPetsc][iPetsc] = 
           d->Vc[PRS][0][jPluto][iPluto]/d->Vc[RHO][0][jPluto][iPluto];
       }
     }
 
-    DMDAVecRestoreArray(fastranData->dmda, fastranData->temperatureVec, &T);
+    DMDAVecRestoreArray(fastranData->dmda, fastranData->temperatureVec, &T_old);
+
+    DMGlobalToLocalBegin(fastranData->dmda,
+                         fastranData->temperatureVecOld,
+                         INSERT_VALUES,
+                         fastranData->temperatureVecOldLocal
+                        );
+    DMGlobalToLocalEnd(fastranData->dmda,
+                       fastranData->temperatureVecOld,
+                       INSERT_VALUES,
+                       fastranData->temperatureVecOldLocal
+                      );
+
 
     /* Solve */
+    VecCopy(fastranData->temperatureVecOld, fastranData->temperatureVec);
     SNESSolve(fastranData->snes, NULL, fastranData->temperatureVec);
+    VecCopy(fastranData->temperatureVec, fastranData->temperatureVecOld);
 
     /* Finally copy the new temperature from FASTran to PLUTO */
     DMDAVecGetArray(fastranData->dmda, fastranData->temperatureVec, &T);
 
-    for (jPluto=JBEG; jPluto <= JEND; jPluto++)
+    for (jPetsc = fastranData->jStart, jPluto=JBEG; 
+         jPetsc < fastranData->jStart + fastranData->jSize, jPluto <= JEND;
+         jPetsc++, jPluto++
+        )
     {
-      for (iPluto=IBEG; iPluto <= IEND; iPluto++)
+      for (iPetsc = fastranData->iStart, iPluto=IBEG; 
+           iPetsc < fastranData->iStart + fastranData->iSize, iPluto <= IEND;
+           iPetsc++, iPluto++
+          )
       {
-        jPetsc = jPluto - grid[1].nghost;
-        iPetsc = iPluto - grid[0].nghost;
-
-//        d->Vc[PRS][0][jPluto][iPluto] = 
-//          T[jPetsc][iPetsc] * d->Vc[RHO][0][jPluto][iPluto];
-
-        d->Vc[RHO][0][jPluto][iPluto] = 
-          d->Vc[PRS][0][jPluto][iPluto] / T[jPetsc][iPetsc] ;
+        d->Vc[PRS][0][jPluto][iPluto] = 
+          T[jPetsc][iPetsc] * d->Vc[RHO][0][jPluto][iPluto];
       }
     }
 
@@ -182,52 +219,40 @@ PetscErrorCode ComputeResidual(SNES snes,
                      temperatureVecLocal);
 
   double **T;
+  double **T_old;
   double **residual;
 
   DMDAVecGetArray(fastranData->dmda, temperatureVecLocal, &T);
+  DMDAVecGetArray(fastranData->dmda, fastranData->temperatureVecOldLocal, &T_old);
   DMDAVecGetArray(fastranData->dmda, residualVec, &residual);
 
   int jPluto, iPluto, jPetsc, iPetsc;
-  for (jPluto=JBEG; jPluto <= JEND; jPluto++)
+  for (jPetsc = fastranData->jStart, jPluto=JBEG; 
+       jPetsc < fastranData->jStart + fastranData->jSize, jPluto <= JEND;
+       jPetsc++, jPluto++
+      )
   {
-    for (iPluto=IBEG; iPluto <= IEND; iPluto++)
+    for (iPetsc = fastranData->iStart, iPluto=IBEG; 
+         iPetsc < fastranData->iStart + fastranData->iSize, iPluto <= IEND;
+         iPetsc++, iPluto++
+        )
     {
-      jPetsc = jPluto - fastranData->grid[1].nghost;
-      iPetsc = iPluto - fastranData->grid[0].nghost;
-
       double T_i_j              = T[jPetsc][iPetsc];
       double T_iPlus1_j         = T[jPetsc][iPetsc+1];
       double T_iMinus1_j        = T[jPetsc][iPetsc-1];
       double T_i_jPlus1         = T[jPetsc+1][iPetsc];
       double T_i_jMinus1        = T[jPetsc-1][iPetsc];
 
-      double T_old_i_j             =    fastranData->d->Vc[PRS][0][jPluto][iPluto]
-                                      / fastranData->d->Vc[RHO][0][jPluto][iPluto];
+      double T_old_i_j              = T_old[jPetsc][iPetsc];
+      double T_old_iPlus1_j         = T_old[jPetsc][iPetsc+1];
+      double T_old_iMinus1_j        = T_old[jPetsc][iPetsc-1];
+      double T_old_i_jPlus1         = T_old[jPetsc+1][iPetsc];
+      double T_old_i_jMinus1        = T_old[jPetsc-1][iPetsc];
 
-      double T_old_iPlus1_j        =    fastranData->d->Vc[PRS][0][jPluto][iPluto+1]
-                                      / fastranData->d->Vc[RHO][0][jPluto][iPluto+1];
-
-      double T_old_iMinus1_j       =    fastranData->d->Vc[PRS][0][jPluto][iPluto-1]
-                                      / fastranData->d->Vc[RHO][0][jPluto][iPluto-1];
-
-      double T_old_i_jPlus1        =    fastranData->d->Vc[PRS][0][jPluto+1][iPluto]
-                                      / fastranData->d->Vc[RHO][0][jPluto+1][iPluto];
-
-      double T_old_i_jMinus1       =    fastranData->d->Vc[PRS][0][jPluto-1][iPluto]
-                                      / fastranData->d->Vc[RHO][0][jPluto-1][iPluto];
-
-      double T_old_iPlus1_jPlus1   =    fastranData->d->Vc[PRS][0][jPluto+1][iPluto+1]
-                                      / fastranData->d->Vc[RHO][0][jPluto+1][iPluto+1];
-
-      double T_old_iMinus1_jPlus1  =    fastranData->d->Vc[PRS][0][jPluto+1][iPluto-1]
-                                      / fastranData->d->Vc[RHO][0][jPluto+1][iPluto-1];
-
-      double T_old_iPlus1_jMinus1  =    fastranData->d->Vc[PRS][0][jPluto-1][iPluto+1]
-                                      / fastranData->d->Vc[RHO][0][jPluto-1][iPluto+1];
-
-      double T_old_iMinus1_jMinus1 =   fastranData->d->Vc[PRS][0][jPluto-1][iPluto-1]
-                                     / fastranData->d->Vc[RHO][0][jPluto-1][iPluto-1];
-
+      double T_old_iPlus1_jPlus1    = T_old[jPetsc+1][iPetsc+1];
+      double T_old_iMinus1_jPlus1   = T_old[jPetsc+1][iPetsc-1];
+      double T_old_iPlus1_jMinus1   = T_old[jPetsc-1][iPetsc+1];
+      double T_old_iMinus1_jMinus1  = T_old[jPetsc-1][iPetsc-1];
 
       /* Bx at (i+1/2, j) */
       double BxRightEdge = fastranData->d->Vs[BX1s][0][jPluto][iPluto];
@@ -260,11 +285,11 @@ PetscErrorCode ComputeResidual(SNES snes,
        * Bx(i,j)     = 0.5*(Bx(i-1/2,j)   + Bx(i+1/2, j)   )
        * Bx(i,j+1)   = 0.5*(Bx(i-1/2,j+1) + Bx(i+1/2, j+1) ) 
        * Bx(i,j+1/2) = 0.5*(Bx(i,  j)     + Bx(i,     j+1) ) */
-      double Bx_i_j      = 0.5*(  fastranData->d->Vs[BX2s][0][jPluto][iPluto-1]
-                                + fastranData->d->Vs[BX2s][0][jPluto][iPluto]
+      double Bx_i_j      = 0.5*(  fastranData->d->Vs[BX1s][0][jPluto][iPluto-1]
+                                + fastranData->d->Vs[BX1s][0][jPluto][iPluto]
                                );
-      double Bx_i_jPlus1 = 0.5*(  fastranData->d->Vs[BX2s][0][jPluto+1][iPluto-1]
-                                + fastranData->d->Vs[BX2s][0][jPluto+1][iPluto]
+      double Bx_i_jPlus1 = 0.5*(  fastranData->d->Vs[BX1s][0][jPluto+1][iPluto-1]
+                                + fastranData->d->Vs[BX1s][0][jPluto+1][iPluto]
                                );
       double BxTopEdge   = 0.5*(Bx_i_j + Bx_i_jPlus1);
 
@@ -275,8 +300,8 @@ PetscErrorCode ComputeResidual(SNES snes,
        * Bx(i,j-1)   = 0.5*(Bx(i-1/2,j-1) + Bx(i+1/2, j-1) ) 
        * Bx(i,j)     = 0.5*(Bx(i-1/2,j)   + Bx(i+1/2, j)   )
        * Bx(i,j-1/2) = 0.5*(Bx(i,  j)     + Bx(i,     j-1) ) */
-      double Bx_i_jMinus1 = 0.5*(  fastranData->d->Vs[BX2s][0][jPluto-1][iPluto-1]
-                                 + fastranData->d->Vs[BX2s][0][jPluto-1][iPluto]
+      double Bx_i_jMinus1 = 0.5*(  fastranData->d->Vs[BX1s][0][jPluto-1][iPluto-1]
+                                 + fastranData->d->Vs[BX1s][0][jPluto-1][iPluto]
                                 );
       double BxBottomEdge = 0.5*(Bx_i_j + Bx_i_jMinus1);
 
@@ -314,16 +339,16 @@ PetscErrorCode ComputeResidual(SNES snes,
       double dx2 = fastranData->grid[1].dx_glob[jPluto];
 
       double x1RightEdge  = fastranData->grid[0].xr_glob[iPluto];
-      double x2RightEdge  = fastranData->grid[1].x_glob[iPluto];
+      double x2RightEdge  = fastranData->grid[1].x_glob[jPluto];
 
       double x1LeftEdge   = fastranData->grid[0].xl_glob[iPluto];
-      double x2LeftEdge   = fastranData->grid[1].x_glob[iPluto];
+      double x2LeftEdge   = fastranData->grid[1].x_glob[jPluto];
 
       double x1TopEdge    = fastranData->grid[0].x_glob[iPluto];
-      double x2TopEdge    = fastranData->grid[1].xr_glob[iPluto];
+      double x2TopEdge    = fastranData->grid[1].xr_glob[jPluto];
 
       double x1BottomEdge = fastranData->grid[0].x_glob[iPluto];
-      double x2BottomEdge = fastranData->grid[1].xl_glob[iPluto];
+      double x2BottomEdge = fastranData->grid[1].xl_glob[jPluto];
 
       double primVarsRightEdge[NVAR];
       double primVarsLeftEdge[NVAR];
@@ -425,16 +450,12 @@ PetscErrorCode ComputeResidual(SNES snes,
           )
         );
 
-//      residual[jPetsc][iPetsc] = 
-//        (T_i_j - T_old_i_j)/fastranData->dt -
-//        100.*(T_iPlus1_j - T_iMinus1_j)/(2.*(1./NX1)) -
-//        100.*(T_i_jPlus1 - T_i_jMinus1)/(2.*(1./NX2));
-
     }
   }
 
 
   DMDAVecRestoreArray(fastranData->dmda, temperatureVecLocal, &T);
+  DMDAVecRestoreArray(fastranData->dmda, fastranData->temperatureVecOldLocal, &T_old);
   DMDAVecRestoreArray(fastranData->dmda, residualVec, &residual);
 
   DMRestoreLocalVector(fastranData->dmda, &temperatureVecLocal);
