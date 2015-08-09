@@ -55,9 +55,6 @@ void Init (double *v, double x1, double x2, double x3)
     v[RHO] = 1.0;
   }
 
-  //v[RHO] = exp(-r*r/0.01) + 1.;
-
-
   v[VX1] = 0.0;
   v[VX2] = 0.0;
   v[VX3] = 0.0;
@@ -77,9 +74,6 @@ void Init (double *v, double x1, double x2, double x3)
    v[AX3] = 0.0;
 
   #endif
-  
-
-//  v[RHO] = 1.  - 0.1*exp(-r*r/(0.1*0.1));
 
 }
 /* ********************************************************************* */
