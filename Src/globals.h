@@ -99,11 +99,11 @@ int      g_operatorStep; /**< Gives the current operator step.
 
 double g_maxCoolingRate = 0.1;  /**< The maximum fractional variation due to 
                                      cooling from one step to the next. */
-double g_minCoolingTemp = 50.0; /**< The minimum temperature (in K) below which
+double g_minCoolingTemp = 1.0e6; /**< The minimum temperature (in K) below which
                                      cooling is suppressed. */
                                     
-double g_smallDensity  = 1.e-12; /**< Small value for density fix. */
-double g_smallPressure = 1.e-12; /**< Small value for pressure fix. */
+double g_smallDensity  = 1.67e-30; /**< Small value for density fix. */
+double g_smallPressure = 1.e-18; /**< Small value for pressure fix. */
 #if EOS == IDEAL 
  double g_gamma = 5./3.;
 #elif EOS == ISOTHERMAL
