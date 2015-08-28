@@ -41,41 +41,23 @@ void Init (double *v, double x1, double x2, double x3)
  *
  *********************************************************************** */
 {
-  v[RHO] = g_inputParam[n_e]*1.1718*CONST_mp;
+  double delrho;
+  long iseed;
+  iseed=1;
+  v[RHO] = g_inputParam[n_e]*1.1718*CONST_mp*( 1. + g_inputParam[amp]*ran2(&iseed) );
   v[VX1] = 0.0;
   v[VX2] = 0.0;
+  v[VX3] = 0.0;
   #if HAVE_ENERGY
-    v[PRS] = g_inputParam[TkeV]*(v[RHO]*1.6022e-9)/(CONST_mp*0.6167);
+    v[PRS] =  g_inputParam[n_e]*1.1718*CONST_mp*CONST_kB*0.78*1.16e7/(0.6167*CONST_mp);
   #endif
   v[TRC] = 0.0;
 
   #if PHYSICS == MHD || PHYSICS == RMHD
    v[BX1] = g_inputParam[B_in]*1.0/sqrt(2.0);
    v[BX2] = g_inputParam[B_in]*1.0/sqrt(2.0);
+   v[BX3] = 0.0;
   #endif
-  int n,n1, l, l1, m, m1;
-  long iseed;
-  double kx, ky, kz;
-  double phi, aklm, xs, ys, zs, pert;
-  double delrho, XMAX_1, YMAX_1;
-  XMAX_1=40.0; YMAX_1=40.0;
-  iseed = 1;
-  delrho=0.0;
-  for(n = 4; n<=20; n++){
-  for(n1 = -n; n1<=n; n1+=2*n){
-     kx = 2.0*CONST_PI*n1/(2.*XMAX_1*CONST_pc*1.e3);
-     for(l = 4; l<=20; l++){
-     for(l1 = -l; l1<=l; l1+=2*l){
-        ky = 2.0*CONST_PI*l1/(2.*YMAX_1*CONST_pc*1.e3);
-        pert=ran2(&iseed);
-        phi = 2.0*CONST_PI*pert;
-        pert=ran2(&iseed);
-        aklm = 0.15*g_inputParam[amp]*(0.5-pert)/sqrt(1.*pow(n,2)+pow(l,2));
-
-        delrho += aklm*v[RHO]*cos(phi + kx*x1 + ky*x2 );
-     }}
-  }}
-  v[RHO] = v[RHO] + delrho;  
 }
 /* ********************************************************************* */
 void Analysis (const Data *d, Grid *grid)
