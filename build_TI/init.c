@@ -43,6 +43,7 @@ void Init (double *v, double x1, double x2, double x3)
 {
   double delrho;
   long iseed;
+  int i;
   iseed=1;
   v[RHO] = g_inputParam[n_e]*1.1718*CONST_mp*( 1. + g_inputParam[amp]*ran2(&iseed) );
   v[VX1] = 0.0;
@@ -52,12 +53,15 @@ void Init (double *v, double x1, double x2, double x3)
     v[PRS] =  g_inputParam[n_e]*1.1718*CONST_mp*CONST_kB*0.78*1.16e7/(0.6167*CONST_mp);
   #endif
   v[TRC] = 0.0;
-
+ 
   #if PHYSICS == MHD || PHYSICS == RMHD
    v[BX1] = g_inputParam[B_in]*1.0/sqrt(2.0);
    v[BX2] = g_inputParam[B_in]*1.0/sqrt(2.0);
    v[BX3] = 0.0;
   #endif
+//  ITOT_LOOP(i){
+//  print("%d \n",i);
+//  }
 }
 /* ********************************************************************* */
 void Analysis (const Data *d, Grid *grid)

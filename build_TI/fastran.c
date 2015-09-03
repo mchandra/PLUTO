@@ -56,7 +56,7 @@ void InitFASTran(int argc, char *argv[], const Data *d, const Grid *grid,
                  DMDA_STENCIL_BOX,
                  N1, N2,
                  N1/NX1, N2/NX2,
-                 1, grid[0].nghost, PETSC_NULL, PETSC_NULL,
+                 1,grid[0].nghost, PETSC_NULL, PETSC_NULL,
                  &fastranData->dmda);
   #else
     PetscPrintf(MPI_COMM_WORLD, "\n Dimension %d not coded yet.\n", DIMENSIONS);
@@ -116,6 +116,7 @@ void InitFASTran(int argc, char *argv[], const Data *d, const Grid *grid,
 
       T_old[jPetsc][iPetsc] = 
         d->Vc[PRS][0][jPluto][iPluto]/d->Vc[RHO][0][jPluto][iPluto];
+//      print("%d %d %d %d \n", iPluto, iPetsc, fastranData->iStart, grid[1].nghost);
     }
   }
 
@@ -184,9 +185,12 @@ void TimeStepSourceTermsUsingFASTran(const Data *d,
       {
         jPluto = jPetsc - fastranData->jStart + grid[1].nghost;
         iPluto = iPetsc - fastranData->iStart + grid[0].nghost;
+//        print("%d %d %d %d \n",iPluto, iPetsc, fastranData->iStart, grid[0].nghost);
 
         T_old[jPetsc][iPetsc] = 
           d->Vc[PRS][0][jPluto][iPluto]/d->Vc[RHO][0][jPluto][iPluto];
+//        print("%d %e \n",iPetsc, T_old[jPetsc-1][iPetsc+1]);
+
       }
     }
 
@@ -277,6 +281,7 @@ PetscErrorCode ComputeResidual(SNES snes,
     {
       jPluto = jPetsc - fastranData->jStart + fastranData->grid[1].nghost;
       iPluto = iPetsc - fastranData->iStart + fastranData->grid[0].nghost;
+//      print("%d %e %e %e\n", iPetsc, T[jPetsc][iPetsc-1],T[jPetsc-1][iPetsc], T[jPetsc][iPetsc+1]);
 
       double T_i_j              = T[jPetsc][iPetsc];
       double T_iPlus1_j         = T[jPetsc][iPetsc+1];
@@ -295,6 +300,7 @@ PetscErrorCode ComputeResidual(SNES snes,
       double T_old_iPlus1_jMinus1   = T_old[jPetsc-1][iPetsc+1];
       double T_old_iMinus1_jMinus1  = T_old[jPetsc-1][iPetsc-1];
 
+//      print("%d %e \n", iPetsc, T_old[jPetsc-1][iPetsc-1] );
       /* Bx at (i+1/2, j) */
       double BxRightEdge = fastranData->d->Vs[BX1s][0][jPluto][iPluto];
 
