@@ -7,14 +7,15 @@
 pluto:                              # Default target
 
 ARCH         = Linux.gcc.defs
-PLUTO_DIR    = /home/mc/data/mc/Downloads/PLUTO
-PETSC_DIR    = /home/mc/data/mc/Downloads/petsc_optimized
+PLUTO_DIR    = /home/astro/work/pluto
+PETSC_DIR    = /home/astro/Downloads/petsc_installation_3.5.4
 SRC          = $(PLUTO_DIR)/Src
 INCLUDE_DIRS = -I. -I$(SRC)
 VPATH        = ./:$(SRC)/New:$(SRC):$(SRC)/Time_Stepping:$(SRC)/States
 
 include $(PLUTO_DIR)/Config/$(ARCH)
 include ${PETSC_DIR}/conf/variables
+
 
 INCLUDE_DIRS += ${PETSC_CC_INCLUDES}
 
