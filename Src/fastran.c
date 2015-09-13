@@ -96,33 +96,8 @@ void InitFASTran(int argc, char *argv[], const Data *d, const Grid *grid,
                  &fastranData->kSize
                 );
 
-  /* First copy the temperature from PLUTO to FASTran */
-  double **T_old;
-  DMDAVecGetArray(fastranData->dmda, fastranData->temperatureVecOld, &T_old);
-
-  int jPluto, iPluto, jPetsc, iPetsc;
-  for (jPetsc = fastranData->jStart;
-       jPetsc < fastranData->jStart + fastranData->jSize;
-       jPetsc++
-      )
-  {
-    for (iPetsc = fastranData->iStart;
-         iPetsc < fastranData->iStart + fastranData->iSize;
-         iPetsc++
-        )
-    {
-      jPluto = jPetsc - fastranData->jStart + grid[1].nghost;
-      iPluto = iPetsc - fastranData->iStart + grid[0].nghost;
-
-      T_old[jPetsc][iPetsc] = 
-        d->Vc[PRS][0][jPluto][iPluto]/d->Vc[RHO][0][jPluto][iPluto];
-    }
-  }
-
-  DMDAVecRestoreArray(fastranData->dmda, fastranData->temperatureVecOld, &T_old);
-
   /* Uncomment for testing without hydro terms */
-  /* 
+  /*
   int n, dumpCounter=0;
   char primVarsFileName[50];
   sprintf(primVarsFileName, "%s%06d.h5", "data", dumpCounter);
@@ -190,8 +165,6 @@ void TimeStepSourceTermsUsingFASTran(const Data *d,
       }
     }
 
-    DMDAVecRestoreArray(fastranData->dmda, fastranData->temperatureVecOld, &T_old);
-
     DMGlobalToLocalBegin(fastranData->dmda,
                          fastranData->temperatureVecOld,
                          INSERT_VALUES,
@@ -204,12 +177,11 @@ void TimeStepSourceTermsUsingFASTran(const Data *d,
                       );
 
 
-    /* Solve */
+    /* Solve \partial e / \partial t = -grad q = grad (kappa grad T)*/
     VecCopy(fastranData->temperatureVecOld, fastranData->temperatureVec);
     SNESSolve(fastranData->snes, NULL, fastranData->temperatureVec);
-    VecCopy(fastranData->temperatureVec, fastranData->temperatureVecOld);
 
-    /* Finally copy the new temperature from FASTran to PLUTO */
+    /* Finally feedback from FASTran to PLUTO */
     DMDAVecGetArray(fastranData->dmda, fastranData->temperatureVec, &T);
 
     for (jPetsc = fastranData->jStart;
@@ -225,12 +197,44 @@ void TimeStepSourceTermsUsingFASTran(const Data *d,
         jPluto = jPetsc - fastranData->jStart + grid[1].nghost;
         iPluto = iPetsc - fastranData->iStart + grid[0].nghost;
 
-        d->Vc[PRS][0][jPluto][iPluto] = 
-          T[jPetsc][iPetsc] * d->Vc[RHO][0][jPluto][iPluto];
+        /* We solved for 
+         *
+         * \partial e / \partial t = -grad q = grad (kappa grad T) -- (2)
+         *
+         * where
+         * 
+         *   \partial e / \partial t 
+         * = \partial (P/(\Gamma - 1)) / \partial t
+         * = \rho/(\Gamma - 1) * \partial T / \partial t
+         *
+         * \rho has been taken outside since it is kept constant during the
+         * split source term evolution.
+         *
+         * After solving the above, we add the source term using Strang
+         * splitting:
+         *
+         * \partial Uc[ENG] / \partial t = - grad q
+         *
+         * Since we have
+         *
+         * -grad q 
+         *  = \partial e / \partial t 
+         *  = \rho/(\Gamma - 1) * \partial T / \partial t
+         *
+         *  Therefore, we need to do
+         *
+         *  \partial Uc[ENG] / \partial t = \rho/(\Gamma - 1) * \partial T / \partial t
+         *
+         *  => Uc[ENG] - Uc_old[ENG] = rho/(Gamma - 1) * (T - T_old) */
+
+        d->Uc[0][jPluto][iPluto][ENG] += 
+          d->Vc[RHO][0][jPluto][iPluto] / (g_gamma - 1.)
+        * (T[jPetsc][iPetsc] - T_old[jPetsc][iPetsc]);
       }
     }
 
     DMDAVecRestoreArray(fastranData->dmda, fastranData->temperatureVec, &T);
+    DMDAVecRestoreArray(fastranData->dmda, fastranData->temperatureVecOld, &T_old);
 
   #endif
 }
@@ -277,6 +281,8 @@ PetscErrorCode ComputeResidual(SNES snes,
     {
       jPluto = jPetsc - fastranData->jStart + fastranData->grid[1].nghost;
       iPluto = iPetsc - fastranData->iStart + fastranData->grid[0].nghost;
+
+      double rho_i_j            = fastranData->d->Vc[RHO][0][jPluto][iPluto];
 
       double T_i_j              = T[jPetsc][iPetsc];
       double T_iPlus1_j         = T[jPetsc][iPetsc+1];
@@ -446,7 +452,7 @@ PetscErrorCode ComputeResidual(SNES snes,
                &kappaParallelBottomEdge, &kappaPerpBottomEdge, &phiBottomEdge);
 
       residual[jPetsc][iPetsc] =
-        (T_i_j - T_old_i_j)/fastranData->dt
+        (T_i_j - T_old_i_j)/fastranData->dt * rho_i_j / (g_gamma - 1.)
        -(
           (1./dx1)
         * (   kappaParallelRightEdge * bxRightEdge
