@@ -18,7 +18,7 @@
 #define  MHD_FORMULATION         CONSTRAINED_TRANSPORT
 #define  BACKGROUND_FIELD        NO
 #define  RESISTIVE_MHD           NO
-#define  THERMAL_CONDUCTION      FASTRAN_TIME_STEPPING
+#define  THERMAL_CONDUCTION      SUPER_TIME_STEPPING
 #define  VISCOSITY               NO
 #define  ROTATING_FRAME          NO
 

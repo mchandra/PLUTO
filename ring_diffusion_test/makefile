@@ -80,6 +80,7 @@ OBJ += vec_pot_update.o
 OBJ += rk_update.o
 OBJ += parabolic_rhs.o
 OBJ += fastran.o
+OBJ += sts.o
 include $(SRC)/MHD/makefile
 include $(SRC)/Thermal_Conduction/makefile
 include $(SRC)/MHD/CT/makefile

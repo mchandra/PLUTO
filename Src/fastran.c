@@ -1,5 +1,6 @@
 #include "pluto.h"
 
+#ifdef FASTRAN
 void InitFASTran(int argc, char *argv[], const Data *d, const Grid *grid,
                  struct fastranDataStruct *fastranData)
 {
@@ -524,3 +525,4 @@ double limiter4(double a, double b, double c, double d)
 {
   return limiter2(limiter2(a, b), limiter2(c, d));
 }
+#endif
