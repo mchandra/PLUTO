@@ -68,7 +68,6 @@ void InitFASTran(int argc, char *argv[], const Data *d, const Grid *grid,
 
   DMCreateGlobalVector(fastranData->dmda, &fastranData->temperatureVec);
   DMCreateGlobalVector(fastranData->dmda, &fastranData->temperatureVecOld);
-  DMGetLocalVector(fastranData->dmda, &fastranData->temperatureVecOldLocal);
   DMCreateGlobalVector(fastranData->dmda, &fastranData->residualVec);
   VecSet(fastranData->temperatureVec, 0.);
   VecSet(fastranData->residualVec, 0.);
@@ -98,7 +97,32 @@ void InitFASTran(int argc, char *argv[], const Data *d, const Grid *grid,
                 );
 
   /* Uncomment for testing without hydro terms */
-  /*
+  /* 
+  double **T_old;
+  DMDAVecGetArray(fastranData->dmda, fastranData->temperatureVecOld, &T_old);
+
+  int jPluto, iPluto, jPetsc, iPetsc;
+  for (jPetsc = fastranData->jStart;
+       jPetsc < fastranData->jStart + fastranData->jSize;
+       jPetsc++
+      )
+  {
+    for (iPetsc = fastranData->iStart;
+         iPetsc < fastranData->iStart + fastranData->iSize;
+         iPetsc++
+        )
+    {
+      jPluto = jPetsc - fastranData->jStart + grid[1].nghost;
+      iPluto = iPetsc - fastranData->iStart + grid[0].nghost;
+
+      T_old[jPetsc][iPetsc] = 
+        d->Vc[PRS][0][jPluto][iPluto]/d->Vc[RHO][0][jPluto][iPluto];
+
+    }
+  }
+
+  DMDAVecRestoreArray(fastranData->dmda, fastranData->temperatureVecOld, &T_old);
+
   int n, dumpCounter=0;
   char primVarsFileName[50];
   sprintf(primVarsFileName, "%s%06d.h5", "data", dumpCounter);
@@ -129,8 +153,7 @@ void InitFASTran(int argc, char *argv[], const Data *d, const Grid *grid,
   }
   exit(1);
   */
-
-  DMRestoreLocalVector(fastranData->dmda, &fastranData->temperatureVecOldLocal);
+  
 }
 
 void TimeStepSourceTermsUsingFASTran(const Data *d, 
@@ -142,6 +165,8 @@ void TimeStepSourceTermsUsingFASTran(const Data *d,
   fastranData->grid = grid;
 
   #if (DIMENSIONS==2)
+
+    DMGetLocalVector(fastranData->dmda, &fastranData->temperatureVecOldLocal);
 
     /* First copy the temperature from PLUTO to FASTran */
     double **T_old, **T;
@@ -163,9 +188,12 @@ void TimeStepSourceTermsUsingFASTran(const Data *d,
 
         T_old[jPetsc][iPetsc] = 
           d->Vc[PRS][0][jPluto][iPluto]/d->Vc[RHO][0][jPluto][iPluto];
+
       }
     }
 
+    /* Exchange ghost zone data for temperatureVecOld and handles periodic
+     * boundary conditions automatically. */
     DMGlobalToLocalBegin(fastranData->dmda,
                          fastranData->temperatureVecOld,
                          INSERT_VALUES,
@@ -237,6 +265,7 @@ void TimeStepSourceTermsUsingFASTran(const Data *d,
     DMDAVecRestoreArray(fastranData->dmda, fastranData->temperatureVec, &T);
     DMDAVecRestoreArray(fastranData->dmda, fastranData->temperatureVecOld, &T_old);
 
+    DMRestoreLocalVector(fastranData->dmda, &fastranData->temperatureVecOldLocal);
   #endif
 }
 
@@ -250,8 +279,8 @@ PetscErrorCode ComputeResidual(SNES snes,
   Vec temperatureVecLocal;
   DMGetLocalVector(fastranData->dmda, &temperatureVecLocal);
 
-  /* Exchange ghost zone data and handles periodic boundary conditions
-   * automatically. */
+  /* Exchange ghost zone data for temperatureVec and handles periodic boundary
+   * conditions automatically. */
   DMGlobalToLocalBegin(fastranData->dmda,
                        temperatureVec,
                        INSERT_VALUES,
