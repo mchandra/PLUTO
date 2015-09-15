@@ -206,9 +206,11 @@ void TimeStepSourceTermsUsingFASTran(const Data *d,
                       );
 
 
+    PetscPrintf(PETSC_COMM_WORLD, "\n");
     /* Solve \partial e / \partial t = -grad q = grad (kappa grad T)*/
     VecCopy(fastranData->temperatureVecOld, fastranData->temperatureVec);
     SNESSolve(fastranData->snes, NULL, fastranData->temperatureVec);
+    PetscPrintf(PETSC_COMM_WORLD, "\n");
 
     /* Finally feedback from FASTran to PLUTO */
     DMDAVecGetArray(fastranData->dmda, fastranData->temperatureVec, &T);
