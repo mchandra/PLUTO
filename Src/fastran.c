@@ -97,7 +97,7 @@ void InitFASTran(int argc, char *argv[], const Data *d, const Grid *grid,
                 );
 
   /* Uncomment for testing without hydro terms */
-  /* 
+  /*
   double **T_old;
   DMDAVecGetArray(fastranData->dmda, fastranData->temperatureVecOld, &T_old);
 
@@ -228,39 +228,8 @@ void TimeStepSourceTermsUsingFASTran(const Data *d,
         jPluto = jPetsc - fastranData->jStart + grid[1].nghost;
         iPluto = iPetsc - fastranData->iStart + grid[0].nghost;
 
-        /* We solved for 
-         *
-         * \partial e / \partial t = -grad q = grad (kappa grad T) -- (2)
-         *
-         * where
-         * 
-         *   \partial e / \partial t 
-         * = \partial (P/(\Gamma - 1)) / \partial t
-         * = \rho/(\Gamma - 1) * \partial T / \partial t
-         *
-         * \rho has been taken outside since it is kept constant during the
-         * split source term evolution.
-         *
-         * After solving the above, we add the source term using Strang
-         * splitting:
-         *
-         * \partial Uc[ENG] / \partial t = - grad q
-         *
-         * Since we have
-         *
-         * -grad q 
-         *  = \partial e / \partial t 
-         *  = \rho/(\Gamma - 1) * \partial T / \partial t
-         *
-         *  Therefore, we need to do
-         *
-         *  \partial Uc[ENG] / \partial t = \rho/(\Gamma - 1) * \partial T / \partial t
-         *
-         *  => Uc[ENG] - Uc_old[ENG] = rho/(Gamma - 1) * (T - T_old) */
-
-        d->Uc[0][jPluto][iPluto][ENG] += 
-          d->Vc[RHO][0][jPluto][iPluto] / (g_gamma - 1.)
-        * (T[jPetsc][iPetsc] - T_old[jPetsc][iPetsc]);
+        d->Vc[PRS][0][jPluto][iPluto] = 
+          T[jPetsc][iPetsc] * d->Vc[RHO][0][jPluto][iPluto];
       }
     }
 
@@ -313,8 +282,6 @@ PetscErrorCode ComputeResidual(SNES snes,
     {
       jPluto = jPetsc - fastranData->jStart + fastranData->grid[1].nghost;
       iPluto = iPetsc - fastranData->iStart + fastranData->grid[0].nghost;
-
-      double rho_i_j            = fastranData->d->Vc[RHO][0][jPluto][iPluto];
 
       double T_i_j              = T[jPetsc][iPetsc];
       double T_iPlus1_j         = T[jPetsc][iPetsc+1];
@@ -484,7 +451,7 @@ PetscErrorCode ComputeResidual(SNES snes,
                &kappaParallelBottomEdge, &kappaPerpBottomEdge, &phiBottomEdge);
 
       residual[jPetsc][iPetsc] =
-        (T_i_j - T_old_i_j)/fastranData->dt * rho_i_j / (g_gamma - 1.)
+        (T_i_j - T_old_i_j)/fastranData->dt
        -(
           (1./dx1)
         * (   kappaParallelRightEdge * bxRightEdge
