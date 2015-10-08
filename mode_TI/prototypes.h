@@ -55,8 +55,8 @@ char   *GetOutputDir();
 double ***GetUserVar (char *);
 
 int LocateIndex(double *, int, int, double);
-float ran2(long *);
-void Init_ICM ( Data *, Grid * ); 
+float ran2(long *); /* added by Deovrat */
+void Init_ICM ( Data *, Grid * ); /* added by Deovrat */
 void Init (double *, double, double, double);
 void Initialize(int argc, char *argv[], Data *, Input *, Grid *, Cmd_Line *);
 
